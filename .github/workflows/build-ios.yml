@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-lastest
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
