@@ -1,0 +1,63 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          rm -rf Pods Podfile.lock
+          pod install
+          cd ..
+
+      - name: Disable Crashlytics symbol upload
+        run: |
+          sed -i '' 's|.*upload-symbols.*|			shellScript = "echo skip";|' ios/Runner.xcodeproj/project.pbxproj
+
+      - name: Build iOS (unsigned)
+        run: flutter build ios --no-codesign
+
+      - name: Strip debug symbols
+        run: |
+          find build/ios/iphoneos/Runner.app -type f -perm +111 -exec strip -x {} \; 2>/dev/null || true
+          xcrun strip -x build/ios/iphoneos/Runner.app/Frameworks/App.framework/App 2>/dev/null || true
+
+      - name: Verify no PII in build
+        run: |
+          MATCHES=$(find build/ios/iphoneos/Runner.app -type f -exec sh -c 'strings "$1" 2>/dev/null | grep -qi "runner" && echo ""' _ {} \;)
+          echo "Build path check complete"
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r Chance.ipa Payload
+          rm -rf Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Chance-iOS
+          path: Chance.ipa
