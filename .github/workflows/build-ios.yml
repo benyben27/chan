@@ -1,15 +1,11 @@
 name: Build iOS IPA
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
   workflow_dispatch:
 
 jobs:
   build-ios:
-    runs-on: macos-15
+    runs-on: macos-lastest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,6 +31,10 @@ jobs:
       - name: Disable Crashlytics symbol upload
         run: |
           sed -i '' 's|.*upload-symbols.*|			shellScript = "echo skip";|' ios/Runner.xcodeproj/project.pbxproj
+
+      - name: Bypass Swift access control for beta SDK
+        run: |
+          echo 'OTHER_SWIFT_FLAGS = $(inherited) -Xfrontend -disable-access-control' >> ios/Flutter/Release.xcconfig
 
       - name: Build iOS (unsigned)
         run: flutter build ios --no-codesign
